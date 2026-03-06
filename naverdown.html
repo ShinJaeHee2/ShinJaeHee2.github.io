@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            body {
+                text-align: center;
+            }
+
+            table {
+                margin-left:auto; 
+                margin-right:auto;
+            }
+
+            table, td, th {
+                border-collapse : collapse;
+                border : 1px solid black;
+            };
+        </style>
+        <script>
+            async function get() {
+                const parser = new DOMParser();
+                const regex1 = /https:\/\/blog.naver.com\/PostView.naver\?blogId=[A-Za-z0-9_]+&logNo=[0-9]+/;
+                const regex2 = /https:\/\/blog.naver.com\/[A-Za-z0-9_]+\/[0-9]+/;
+                let xmlUrl;
+                let xmlResponse;
+                let xml;
+                let json;
+
+                let thumbnail;
+                let title;
+                let videoUrl;
+                let videoTable = document.querySelector('table');
+                videoTable.innerHTML = '';
+
+                let url = document.forms.url.value;
+
+                if (!regex1.test(url)) {
+                    if (regex2.test(url)) {
+                        let splited = url.split('/')
+                        url = 'https://blog.naver.com/PostView.naver?blogId=' + splited[3] + '&logNo=' + splited[4];
+                        console.log(url);
+                    }
+                    else {
+                        videoTable.insertAdjacentHTML('beforeend', 'URL을 인식할 수 없습니다.');
+                        return;
+                    }
+                }
+
+                let response = await fetch(url);
+                let html = await response.text();
+
+                let parsed = parser.parseFromString(html, 'text/html');
+                let video = parsed.getElementsByClassName('_naverVideo _vnl');
+                
+                
+                for (let i = 0; i < video.length; i++) {
+                    xmlUrl = 'https://apis.naver.com/neonplayer/vodplay/v3/playback/' + video[i].getAttribute('vid') + '?key=' + video[i].getAttribute('key');
+                    xmlResponse = await fetch(xmlUrl);
+                    xml = await xmlResponse.text();
+                    json = JSON.parse(xml);
+
+                    thumbnail = json.MPD[0].Period[0].SupplementalProperty[0]['nvod:Summary'][0]['nvod:Cover'][0]['#text'];
+                    title = json.MPD[0].Period[0].SupplementalProperty[0]['nvod:Summary'][0]['nvod:Title'][0];
+                    videoUrl = json.MPD[0].Period[0].AdaptationSet[0].Representation[0].BaseURL[0];
+
+                    videoTable.insertAdjacentHTML('beforeend', '<tr>\n<td><img src="' + thumbnail + '" width="250"></td>\n<td>' + title + '</td>\n<td><a href="' + videoUrl + '">다운로드</a>\n</tr>');
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h1>네이버 블로그 동영상 다운로더</h1>
+        <form name="forms" onsubmit="return false">
+            <input type="text" name="url", id="url">
+            <input type="button" id="button" onclick="get()" value="검색">
+        </form>
+        <p>
+            <table class="videoTable"></table>
+        </p>
+        <script>
+            let forms = document.getElementById('url');
+
+            forms.addEventListener("keyup", function(event) {
+                if (event.keyCode === 13) {
+                    event.preventDefault();
+                    document.getElementById("button").click();
+                }
+            });
+        </script>
+    </body>
+</html>
